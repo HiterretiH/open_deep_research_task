@@ -738,7 +738,7 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
             
             if not neutrality_check["is_neutral"]:
                 # Добавляем аргументы за и против для балансировки
-                balanced_report = f"""{cleaned_report}
+                balanced_report = f"""{cleaned_report}"""
             else:
                 balanced_report = cleaned_report
             
