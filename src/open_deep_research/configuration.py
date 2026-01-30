@@ -14,6 +14,7 @@ class SearchAPI(Enum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
     TAVILY = "tavily"
+    LOCAL_FILE = "local_file"
     NONE = "none"
 
 class MCPConfig(BaseModel):
@@ -86,6 +87,7 @@ class Configuration(BaseModel):
                     {"label": "Tavily", "value": SearchAPI.TAVILY.value},
                     {"label": "OpenAI Native Web Search", "value": SearchAPI.OPENAI.value},
                     {"label": "Anthropic Native Web Search", "value": SearchAPI.ANTHROPIC.value},
+                    {"label": "Local File Search", "value": SearchAPI.LOCAL_FILE.value},
                     {"label": "None", "value": SearchAPI.NONE.value}
                 ]
             }
@@ -228,6 +230,16 @@ class Configuration(BaseModel):
             "x_oap_ui_config": {
                 "type": "text",
                 "description": "Any additional instructions to pass along to the Agent regarding the MCP tools that are available to it."
+            }
+        }
+    )
+    local_file_path: str = Field(
+        default="./data/research_data.txt",
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "default": "./data/research_data.txt",
+                "description": "Path to local file for local_file_search"
             }
         }
     )

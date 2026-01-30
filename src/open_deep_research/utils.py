@@ -4,6 +4,8 @@ import asyncio
 import logging
 import os
 import warnings
+import aiofiles
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
@@ -532,7 +534,7 @@ async def get_search_tool(search_api: SearchAPI):
     """Configure and return search tools based on the specified API provider.
     
     Args:
-        search_api: The search API provider to use (Anthropic, OpenAI, Tavily, or None)
+        search_api: The search API provider to use
         
     Returns:
         List of configured search tool objects for the specified provider
@@ -552,6 +554,16 @@ async def get_search_tool(search_api: SearchAPI):
     elif search_api == SearchAPI.TAVILY:
         # Configure Tavily search tool with metadata
         search_tool = tavily_search
+        search_tool.metadata = {
+            **(search_tool.metadata or {}), 
+            "type": "search", 
+            "name": "web_search"
+        }
+        return [search_tool]
+        
+    elif search_api == SearchAPI.LOCAL_FILE:
+        # Local file search tool 
+        search_tool = local_file_search
         search_tool.metadata = {
             **(search_tool.metadata or {}), 
             "type": "search", 
@@ -923,3 +935,64 @@ def get_tavily_api_key(config: RunnableConfig):
         return api_keys.get("TAVILY_API_KEY")
     else:
         return os.getenv("TAVILY_API_KEY")
+
+##########################
+# Local File Search Tool
+##########################
+
+LOCAL_FILE_SEARCH_DESCRIPTION = (
+    "Search tool that reads content from a local file. "
+    "Useful for testing and development when internet access is not available. "
+    "The tool always returns the content of the configured file regardless of the query."
+)
+
+@tool(description=LOCAL_FILE_SEARCH_DESCRIPTION)
+async def local_file_search(
+    query: str,
+    config: RunnableConfig = None
+) -> str:
+    """Read content from a local file specified in configuration.
+
+    Args:
+        query: Search query (ignored, always returns file content)
+        config: Runtime configuration containing file path
+
+    Returns:
+        Content of the local file with metadata
+    """
+    try:
+        configurable = Configuration.from_runnable_config(config)
+        file_path = configurable.local_file_path
+        
+        path = Path(file_path)
+        
+        if not path.exists():
+            return f"Error: File not found at path '{file_path}'. Please check your configuration."
+        
+        async with aiofiles.open(path, 'r', encoding='utf-8') as f:
+            content = await f.read()
+        
+        formatted_response = f"""
+## Local File Search Results
+
+**File Path:** `{file_path}`
+**File Size:** {len(content)} characters
+**Last Modified:** {path.stat().st_mtime}
+
+### Content Preview:
+{content[:2000]}{'...' if len(content) > 2000 else ''}
+
+### Full Content Length:
+{len(content)} characters total
+
+### Note:
+This is a local file search stub. The query "{query}" was ignored, 
+and the content of the configured file was returned instead.
+"""
+        
+        return formatted_response
+        
+    except PermissionError:
+        return f"Error: Permission denied when trying to read file '{file_path}'."
+    except Exception as e:
+        return f"Error reading file '{file_path}': {str(e)}"
